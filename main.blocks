@@ -1,4 +1,7 @@
-<xml xmlns="http://www.w3.org/1999/xhtml">
-  <block type="pxt-on-start"></block>
-  <block type="device_forever"></block>
-</xml>
+<xml xmlns="https://developers.google.com/blockly/xml"><block type="pxt-on-start" id="@t/wow9W86Cm1n7%mDh6" x="0" y="0"><statement name="HANDLER"><block type="device_show_leds" id="@36!x5JxZg(lfJMspd;a"><field name="LEDS">`
+        . . . . # 
+        . . . . # 
+        # # . # . 
+        . # # # . 
+        . . # . .
+        `</field></block></statement></block><block type="device_forever" id="Ssmci{WD|Pwf).AGI$2k" x="205" y="0"></block></xml>

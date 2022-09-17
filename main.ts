@@ -5,7 +5,12 @@ namespace vnw_microbit{
     let currentCmd = '';
     let wifi_connected = false;
 
-    let pauseBaseValue: number = 1000
+    let pauseBaseValue: number = 1000;
+    let EventSource = 2836;
+    enum EventValue {
+        ConnectWifi
+    }
+
 
     function sendAT(command: string, wait: number = 0) {
         serial.writeString(`${command}\u000D\u000A`)
@@ -21,11 +26,9 @@ namespace vnw_microbit{
         sendAT(`AT+CIPSNTPCFG=1,8,"ntp1.aliyun.com","0.pool.ntp.org","time.google.com"`, 100)
     }
 
-    //% blockId="vnw_wifi_connect" block="Připojit k wifi"
-
     //% block="Připojit k wifi SSID = %ssid|KEY = %pw"
-    //% ssid.defl=your_ssid
-    //% pw.defl=your_pwd weight=95
+    //% ssid.defl=Název_sítě
+    //% pw.defl=Heslo_sítě weight=95
     export function wiFiConnect(ssid: string, pw: string): void {
         serial.redirect(
             SerialPin.P8,
@@ -40,21 +43,26 @@ namespace vnw_microbit{
 
         //currentCmd = Cmd.ConnectWifi
         sendAT(`AT+CWJAP="${ssid}","${pw}"`) // connect to Wifi router
-        //control.waitForEvent(EspEventSource, EspEventValue.ConnectWifi)
+        control.waitForEvent(EventSource, EventValue.ConnectWifi)
         while (!wifi_connected) {
             restEsp8266()
             sendAT(`AT+CWJAP="${ssid}","${pw}"`)
-            //control.waitForEvent(EspEventSource, EspEventValue.ConnectWifi)
+            control.waitForEvent(EventSource, EventValue.ConnectWifi)
         }
     }
 
-    function sendData(){
+    //% block="Odešli uložená data"
+    export function sendData() {
+
+        sendTextData('test');
+    }
+
+    function sendTextData(body : string){
 
         let myMethod = 'POST';
         let host = 'data.vnw.cz';
         let port = '80';
-        let urlPath = '/';
-        let body = 'test';
+        let urlPath = '/log';
 
         control.runInParallel(function(){
 
@@ -103,11 +111,11 @@ namespace vnw_microbit{
                 if (recvString.includes("WIFI GOT IP")) {
                     wifi_connected = true
                     recvString = ""
-                    //control.raiseEvent(EspEventSource, EspEventValue.ConnectWifi)
+                    control.raiseEvent(EventSource, EventValue.ConnectWifi)
                 } else if (recvString.includes("ERROR")) {
                     wifi_connected = false
                     recvString = ""
-                    //control.raiseEvent(EspEventSource, EspEventValue.ConnectWifi)
+                    control.raiseEvent(EventSource, EventValue.ConnectWifi)
                 }
             }
         }

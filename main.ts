@@ -63,32 +63,43 @@ namespace vnw_microbit{
         let myMethod = 'POST';
         let host = 'www.vnw.cz';
         let port = '80';
-        let urlPath = '/microbit/log';
+        let urlPath = '/microbit';
 
         //control.runInParallel(function(){
 
             let data: string = "AT+CIPSTART=\"TCP\",\"" + host + "\"," + port
-            sendAT(data)
+            sendAT(data, pauseBaseValue)
 
-            data = 'GET' + " " + urlPath
-            sendAT("AT+CIPSEND=" + (data.length + 2), pauseBaseValue * 3)
-            sendAT(data, pauseBaseValue * 6)
-            /*
+            //data = "GET /microbit"
+        
+            //sendAT("AT+CIPSEND=" + (data.length + 2), pauseBaseValue * 3)
+            //sendAT(data, pauseBaseValue * 6)
+
             data = myMethod + " " + urlPath + " HTTP/1.1" + "\u000D" + "\u000A"
                 + "Host: " + host + "\u000D" + "\u000A"
             /*
             if (headers && headers.length > 0) {
                 data += headers + "\u000D" + "\u000A"
-            }* /
+            }*/
+            data += "Test: xxx\u000D" + "\u000A"
+            data += "Test2: yyy\u000D" + "\u000A"
+            data += "Content-length: " + body.length + "\u000D" + "\u000A"
+            data += "\u000D" + "\u000A"
+            data += body
+            //data += "Obsah\u000D" + "\u000A"
+            //data += "\u000D" + "\u000A"
+            /*
             if (data && data.length > 0) {
-                data += "\u000D" + "\u000A" + body + "\u000D" + "\u000A"
-            }
+                //data += "\u000D" + "\u000A" + body + "\u000D" + "\u000A"
+                data += "\u000D" + "\u000A" + "DDDDD" + "\u000D" + "\u000A"
+                led.plot(0, 1);
+            }*/
             data += "\u000D" + "\u000A"
             // Send data:
             sendAT("AT+CIPSEND=" + (data.length + 2), pauseBaseValue * 3)
             sendAT(data, pauseBaseValue * 6)
             // Close TCP connection:
-            sendAT("AT+CIPCLOSE", pauseBaseValue * 3)*/
+            sendAT("AT+CIPCLOSE", pauseBaseValue * 3)
         //});
     }
 

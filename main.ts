@@ -1,15 +1,21 @@
-//% color=190 weight=100 icon="\uf1ec" block="VNW Data"
 namespace vnw_microbit{
 
     let recvString = '';
-    let currentCmd = '';
     let wifi_connected = false;
 
     let pauseBaseValue: number = 1000;
     let EventSource = 2836;
     enum EventValue {
-        ConnectWifi
+        NONE,
+        ConnectWifi,
+        CIPSTART,
+        CIPSEND,
+        CIPSEND_DATA,
+        CIPCLOSE,
+        WAITOK
+
     }
+    let currentEvent = EventValue.NONE;
 
 
     function sendAT(command: string, wait: number = 0) {
@@ -30,25 +36,28 @@ namespace vnw_microbit{
     //% ssid.defl=Název_sítě
     //% pw.defl=Heslo_sítě weight=95
     export function wiFiConnect(ssid: string, pw: string): void {
-        serial.redirect(
-            SerialPin.P8,
-            SerialPin.P12,
-            BaudRate.BaudRate115200
-        )
-        basic.pause(100);
 
-        serial.setTxBufferSize(128);
-        serial.setRxBufferSize(128);  
-        restEsp8266();
+        control.runInParallel(function(){
+            serial.redirect(
+                SerialPin.P8,
+                SerialPin.P12,
+                BaudRate.BaudRate115200
+            )
+            basic.pause(100);
 
-        //currentCmd = Cmd.ConnectWifi
-        sendAT(`AT+CWJAP="${ssid}","${pw}"`) // connect to Wifi router
-        control.waitForEvent(EventSource, EventValue.ConnectWifi)
-        while (!wifi_connected) {
-            restEsp8266()
-            sendAT(`AT+CWJAP="${ssid}","${pw}"`)
+            serial.setTxBufferSize(128);
+            serial.setRxBufferSize(128);  
+            restEsp8266();
+
+            currentEvent = EventValue.ConnectWifi
+            sendAT(`AT+CWJAP="${ssid}","${pw}"`) // connect to Wifi router
             control.waitForEvent(EventSource, EventValue.ConnectWifi)
-        }
+            while (!wifi_connected) {
+                restEsp8266()
+                sendAT(`AT+CWJAP="${ssid}","${pw}"`)
+                control.waitForEvent(EventSource, EventValue.ConnectWifi)
+            }
+        })
     }
 
     //% block="Odešli uložená data data = %body"
@@ -60,15 +69,26 @@ namespace vnw_microbit{
 
     function sendTextData(body : string){
 
-        let myMethod = 'POST';
-        let host = 'www.vnw.cz';
-        let port = '80';
-        let urlPath = '/microbit';
+        control.runInParallel(function(){
 
-        //control.runInParallel(function(){
+            while (!wifi_connected) {
+                control.waitForEvent(EventSource, EventValue.ConnectWifi)
+            }
 
+            //recvString = '';
+
+            let myMethod = 'POST';
+            let host = 'www.vnw.cz';
+            let port = '80';
+            let urlPath = '/microbit';
+            
             let data: string = "AT+CIPSTART=\"TCP\",\"" + host + "\"," + port
-            sendAT(data, pauseBaseValue)
+            
+
+            currentEvent = EventValue.CIPSTART
+            sendAT(data);
+            control.waitForEvent(EventSource, EventValue.CIPSTART)
+            control.waitForEvent(EventSource, EventValue.WAITOK)
 
             //data = "GET /microbit"
         
@@ -86,21 +106,23 @@ namespace vnw_microbit{
             data += "Content-length: " + body.length + "\u000D" + "\u000A"
             data += "\u000D" + "\u000A"
             data += body
-            //data += "Obsah\u000D" + "\u000A"
-            //data += "\u000D" + "\u000A"
-            /*
-            if (data && data.length > 0) {
-                //data += "\u000D" + "\u000A" + body + "\u000D" + "\u000A"
-                data += "\u000D" + "\u000A" + "DDDDD" + "\u000D" + "\u000A"
-                led.plot(0, 1);
-            }*/
             data += "\u000D" + "\u000A"
             // Send data:
-            sendAT("AT+CIPSEND=" + (data.length + 2), pauseBaseValue * 3)
-            sendAT(data, pauseBaseValue * 6)
+
+            currentEvent = EventValue.CIPSEND
+            sendAT("AT+CIPSEND=" + (data.length + 2))
+            control.waitForEvent(EventSource, EventValue.CIPSEND)
+            control.waitForEvent(EventSource, EventValue.WAITOK)
+
+
+            currentEvent = EventValue.CIPSEND_DATA
+            sendAT(data)
+            control.waitForEvent(EventSource, EventValue.CIPSEND_DATA)
+            control.waitForEvent(EventSource, EventValue.WAITOK)
             // Close TCP connection:
-            sendAT("AT+CIPCLOSE", pauseBaseValue * 3)
-        //});
+            sendAT("AT+CIPCLOSE")
+            currentEvent = EventValue.NONE
+        });
     }
 
     /**
@@ -120,11 +142,11 @@ namespace vnw_microbit{
 
     serial.onDataReceived(serial.delimiters(Delimiters.NewLine), function () {
         recvString += serial.readString();
-        led.plot(0, 0);
+        //led.plot(0, 0);
 
         //basic.showString(recvString)
 
-        if (currentCmd == ''){ //Cmd.ConnectWifi
+        if (currentEvent == EventValue.ConnectWifi) {
 
             if (recvString.includes("AT+CWJAP")) {
                 recvString = recvString.slice(recvString.indexOf("AT+CWJAP"))
@@ -140,9 +162,32 @@ namespace vnw_microbit{
             }
         }
 
-        if(true){
+        if (currentEvent == EventValue.CIPSTART) {
 
-            //recvString
+            if (recvString.includes("AT+CIPSTART")) { // "CONNECT" ? Ne => Čekám na OK
+                control.raiseEvent(EventSource, EventValue.CIPSTART)
+            }
+        }
+
+        if (currentEvent == EventValue.CIPSEND) {
+
+            if (recvString.includes("AT+CIPSEND")) { // "SEND OK" ? Ne => Čekám na OK
+                control.raiseEvent(EventSource, EventValue.CIPSEND)
+            }
+        }
+
+        if (currentEvent == EventValue.CIPSEND_DATA) {
+
+            if (recvString.includes("+IPD")) { // "SEND OK" ?
+
+                control.raiseEvent(EventSource, EventValue.CIPSEND)
+                recvString = ""
+            }
+        }
+
+        if (recvString.includes("\u000D" + "\u000A" + "OK" + "\u000D" + "\u000A")) {
+            control.raiseEvent(EventSource, EventValue.WAITOK);
+            recvString = "";
         }
     });
 
@@ -150,5 +195,11 @@ namespace vnw_microbit{
     export function vratPrijatyString(): string {
 
         return recvString;
+    }
+
+    //% block
+    export function isWifiConnect(): boolean {
+
+        return wifi_connected;
     }
 }

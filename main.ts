@@ -51,29 +51,35 @@ namespace vnw_microbit{
         }
     }
 
-    //% block="Odešli uložená data"
-    export function sendData() {
+    //% block="Odešli uložená data data = %body"
+    //% body.defl="Textová data"
+    export function sendData(body: string) {
 
-        sendTextData('test');
+        sendTextData(body);
     }
 
     function sendTextData(body : string){
 
         let myMethod = 'POST';
-        let host = 'data.vnw.cz';
+        let host = 'www.vnw.cz';
         let port = '80';
-        let urlPath = '/log';
+        let urlPath = '/microbit/log';
 
-        control.runInParallel(function(){
+        //control.runInParallel(function(){
 
             let data: string = "AT+CIPSTART=\"TCP\",\"" + host + "\"," + port
             sendAT(data)
+
+            data = 'GET' + " " + urlPath
+            sendAT("AT+CIPSEND=" + (data.length + 2), pauseBaseValue * 3)
+            sendAT(data, pauseBaseValue * 6)
+            /*
             data = myMethod + " " + urlPath + " HTTP/1.1" + "\u000D" + "\u000A"
                 + "Host: " + host + "\u000D" + "\u000A"
             /*
             if (headers && headers.length > 0) {
                 data += headers + "\u000D" + "\u000A"
-            }*/
+            }* /
             if (data && data.length > 0) {
                 data += "\u000D" + "\u000A" + body + "\u000D" + "\u000A"
             }
@@ -82,8 +88,8 @@ namespace vnw_microbit{
             sendAT("AT+CIPSEND=" + (data.length + 2), pauseBaseValue * 3)
             sendAT(data, pauseBaseValue * 6)
             // Close TCP connection:
-            sendAT("AT+CIPCLOSE", pauseBaseValue * 3)
-        });
+            sendAT("AT+CIPCLOSE", pauseBaseValue * 3)*/
+        //});
     }
 
     /**
@@ -102,7 +108,10 @@ namespace vnw_microbit{
     }
 
     serial.onDataReceived(serial.delimiters(Delimiters.NewLine), function () {
-        recvString += serial.readString()
+        recvString += serial.readString();
+        led.plot(0, 0);
+
+        //basic.showString(recvString)
 
         if (currentCmd == ''){ //Cmd.ConnectWifi
 
@@ -125,4 +134,10 @@ namespace vnw_microbit{
             //recvString
         }
     });
+
+    //% block
+    export function vratPrijatyString(): string {
+
+        return recvString;
+    }
 }
